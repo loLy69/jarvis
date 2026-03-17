@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS Календарь</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+        }
+
+        .month-nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .nav-btn {
+            background: var(--tg-theme-button-color, #007AFF);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .nav-btn:hover {
+            opacity: 0.8;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: 600;
+            padding: 10px 0;
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .day:hover {
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+        }
+
+        .day.other-month {
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .day.today {
+            background: var(--tg-theme-button-color, #007AFF);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .day.has-events::after {
+            content: '';
+            position: absolute;
+            bottom: 5px;
+            width: 6px;
+            height: 6px;
+            background: var(--tg-theme-button-color, #007AFF);
+            border-radius: 50%;
+        }
+
+        .day.selected {
+            background: var(--tg-theme-button-color, #007AFF);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .events-list {
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .event-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .event-time {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .event-description {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+            margin-top: 4px;
+        }
+
+        .delete-btn {
+            background: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--tg-theme-button-color, #007AFF);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 50px auto;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--tg-theme-hint-color, #cccccc);
+            border-radius: 8px;
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: var(--tg-theme-button-color, #007AFF);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color, #f8f8f8);
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="month-nav">
+            <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+            <span id="currentMonth"></span>
+            <button class="nav-btn" onclick="changeMonth(1)">›</button>
+        </div>
+    </div>
+
+    <div class="calendar" id="calendar"></div>
+
+    <div class="events-list" id="eventsList">
+        <div class="loading">Загрузка...</div>
+    </div>
+
+    <button class="add-btn" onclick="showAddModal()">+</button>
+
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <h3>Добавить событие</h3>
+            <div class="form-group">
+                <label>Название *</label>
+                <input type="text" id="eventTitle" placeholder="Название события">
+            </div>
+            <div class="form-group">
+                <label>Дата *</label>
+                <input type="date" id="eventDate">
+            </div>
+            <div class="form-group">
+                <label>Время</label>
+                <input type="time" id="eventTime">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="eventDescription" placeholder="Описание события"></textarea>
+            </div>
+            <div class="form-buttons">
+                <button class="btn btn-secondary" onclick="hideAddModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="addEvent()">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg;
+        let currentMonth = new Date();
+        let selectedDate = null;
+        let events = {};
+
+        // Инициализация Telegram Web App
+        function initTelegramApp() {
+            if (window.Telegram) {
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                
+                // Получаем user_id из параметров URL
+                const urlParams = new URLSearchParams(window.location.search);
+                window.userId = urlParams.get('user_id');
+                
+                if (!window.userId) {
+                    document.body.innerHTML = '<div class="empty-state">Ошибка: user_id не указан</div>';
+                    return;
+                }
+                
+                loadEvents();
+                renderCalendar();
+            } else {
+                // Для тестирования вне Telegram
+                window.userId = '123';
+                loadEvents();
+                renderCalendar();
+            }
+        }
+
+        // Загрузка событий
+        async function loadEvents() {
+            try {
+                const year = currentMonth.getFullYear();
+                const month = currentMonth.getMonth() + 1;
+                
+                const response = await fetch(`/api/events?user_id=${window.userId}&year=${year}&month=${month}`);
+                const data = await response.json();
+                
+                events = {};
+                data.forEach(event => {
+                    const date = event.event_date;
+                    if (!events[date]) {
+                        events[date] = [];
+                    }
+                    events[date].push(event);
+                });
+                
+                renderCalendar();
+                renderEventsList();
+            } catch (error) {
+                console.error('Ошибка загрузки событий:', error);
+                document.getElementById('eventsList').innerHTML = '<div class="empty-state">Ошибка загрузки событий</div>';
+            }
+        }
+
+        // Отрисовка календаря
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            
+            // Обновляем заголовок месяца
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                              'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+            
+            // Дни недели
+            const dayHeaders = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            calendar.innerHTML = dayHeaders.map(day => `<div class="day-header">${day}</div>`).join('');
+            
+            // Первый день месяца
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - (firstDay.getDay() || 7) + 1);
+            
+            // Генерируем дни
+            const today = new Date();
+            for (let i = 0; i < 42; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                
+                const isCurrentMonth = date.getMonth() === month;
+                const isToday = date.toDateString() === today.toDateString();
+                const dateStr = date.toISOString().split('T')[0];
+                const hasEvents = events[dateStr] && events[dateStr].length > 0;
+                const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+                
+                let classes = ['day'];
+                if (!isCurrentMonth) classes.push('other-month');
+                if (isToday) classes.push('today');
+                if (hasEvents) classes.push('has-events');
+                if (isSelected) classes.push('selected');
+                
+                calendar.innerHTML += `
+                    <div class="${classes.join(' '}" onclick="selectDate('${dateStr}')">
+                        ${date.getDate()}
+                    </div>
+                `;
+            }
+        }
+
+        // Выбор даты
+        function selectDate(dateStr) {
+            selectedDate = new Date(dateStr + 'T00:00:00');
+            renderCalendar();
+            renderEventsList();
+        }
+
+        // Отрисовка списка событий
+        function renderEventsList() {
+            const eventsList = document.getElementById('eventsList');
+            
+            if (selectedDate) {
+                const dateStr = selectedDate.toISOString().split('T')[0];
+                const dayEvents = events[dateStr] || [];
+                
+                if (dayEvents.length === 0) {
+                    eventsList.innerHTML = '<div class="empty-state">Нет событий на этот день</div>';
+                } else {
+                    eventsList.innerHTML = dayEvents.map(event => `
+                        <div class="event-item">
+                            <div>
+                                <div class="event-title">${event.title}</div>
+                                ${event.event_time ? `<div class="event-time">${event.event_time}</div>` : ''}
+                                ${event.description ? `<div class="event-description">${event.description}</div>` : ''}
+                            </div>
+                            <button class="delete-btn" onclick="deleteEvent(${event.id})">Удалить</button>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                // Показываем ближайшие события
+                const today = new Date().toISOString().split('T')[0];
+                const upcomingEvents = [];
+                
+                Object.keys(events).sort().forEach(date => {
+                    if (date >= today) {
+                        upcomingEvents.push(...events[date]);
+                    }
+                });
+                
+                if (upcomingEvents.length === 0) {
+                    eventsList.innerHTML = '<div class="empty-state">Нет предстоящих событий</div>';
+                } else {
+                    eventsList.innerHTML = '<h3>Ближайшие события</h3>' + 
+                        upcomingEvents.slice(0, 5).map(event => `
+                            <div class="event-item">
+                                <div>
+                                    <div class="event-title">${event.title}</div>
+                                    <div class="event-time">${event.event_date} ${event.event_time || ''}</div>
+                                </div>
+                                <button class="delete-btn" onclick="deleteEvent(${event.id})">Удалить</button>
+                            </div>
+                        `).join('');
+                }
+            }
+        }
+
+        // Изменение месяца
+        function changeMonth(direction) {
+            currentMonth.setMonth(currentMonth.getMonth() + direction);
+            loadEvents();
+        }
+
+        // Показать модальное окно добавления
+        function showAddModal() {
+            document.getElementById('addModal').style.display = 'block';
+            
+            // Устанавливаем дату по умолчанию
+            if (selectedDate) {
+                document.getElementById('eventDate').value = selectedDate.toISOString().split('T')[0];
+            } else {
+                document.getElementById('eventDate').value = new Date().toISOString().split('T')[0];
+            }
+        }
+
+        // Скрыть модальное окно
+        function hideAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+            // Очистить форму
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventTime').value = '';
+            document.getElementById('eventDescription').value = '';
+        }
+
+        // Добавить событие
+        async function addEvent() {
+            const title = document.getElementById('eventTitle').value.trim();
+            const date = document.getElementById('eventDate').value;
+            const time = document.getElementById('eventTime').value;
+            const description = document.getElementById('eventDescription').value.trim();
+            
+            if (!title || !date) {
+                alert('Название и дата обязательны');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/events', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: window.userId,
+                        title,
+                        event_date: date,
+                        event_time: time || null,
+                        description: description || null
+                    })
+                });
+                
+                if (response.ok) {
+                    hideAddModal();
+                    loadEvents();
+                    if (tg) {
+                        tg.showAlert('Событие добавлено');
+                    }
+                } else {
+                    throw new Error('Ошибка добавления события');
+                }
+            } catch (error) {
+                console.error('Ошибка добавления события:', error);
+                if (tg) {
+                    tg.showAlert('Ошибка добавления события');
+                }
+            }
+        }
+
+        // Удалить событие
+        async function deleteEvent(eventId) {
+            if (!confirm('Удалить это событие?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/events/${eventId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadEvents();
+                    if (tg) {
+                        tg.showAlert('Событие удалено');
+                    }
+                } else {
+                    throw new Error('Ошибка удаления события');
+                }
+            } catch (error) {
+                console.error('Ошибка удаления события:', error);
+                if (tg) {
+                    tg.showAlert('Ошибка удаления события');
+                }
+            }
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initTelegramApp);
+    </script>
+</body>
+</html>
