@@ -8,6 +8,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 import asyncpg
 
 # Импорты для подключения к базе данных
@@ -141,8 +142,6 @@ async def delete_event(event_id: int, user_id: int = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Обслуживание статических файлов
-from fastapi.staticfiles import StaticFiles
-
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":

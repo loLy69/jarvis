@@ -8,24 +8,27 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    """Класс для хранения конфигурации бота"""
+    """Класс для настроек приложения"""
     
-    # Токен Telegram бота
-    BOT_TOKEN = os.getenv('BOT_TOKEN')
+    # Токен бота
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
     
-    # API ключ для Groq
-    GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+    # API ключ Groq
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     
-    # URL для подключения к PostgreSQL
-    DATABASE_URL = os.getenv('DATABASE_URL')
+    # URL базы данных PostgreSQL
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     
-    # Google Calendar
-    GOOGLE_CREDENTIALS = os.getenv('GOOGLE_CREDENTIALS')
+    # Настройки Spotify
+    SPOTIFY_CLIENT_ID: str = os.getenv("SPOTIFY_CLIENT_ID", "")
+    SPOTIFY_CLIENT_SECRET: str = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+    SPOTIFY_REDIRECT_URI: str = os.getenv("SPOTIFY_REDIRECT_URI", "")
     
-    # Spotify
-    SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
-    SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
-    SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI')
+    # URL для Telegram Mini App
+    WEBAPP_URL: str = os.getenv("WEBAPP_URL", "")
+    
+    # Настройки Google Calendar (опционально)
+    GOOGLE_CREDENTIALS: str = os.getenv("GOOGLE_CREDENTIALS", "")
     
     # Системный промпт для JARVIS
     SYSTEM_PROMPT = """Ты JARVIS — персональный ИИ-ассистент Артура. 

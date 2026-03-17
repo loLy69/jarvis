@@ -82,18 +82,68 @@ class GroqClient:
                         "required": ["query"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "add_event",
+                    "description": "Добавить событие в календарь",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Название события"
+                            },
+                            "date": {
+                                "type": "string", 
+                                "description": "Дата события в формате: сегодня, завтра, DD.MM, DD.MM.YYYY"
+                            },
+                            "time": {
+                                "type": "string",
+                                "description": "Время события в формате HH:MM (опционально)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Описание события (опционально)"
+                            }
+                        },
+                        "required": ["title", "date"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_today_events",
+                    "description": "Получить события на сегодня",
+                    "parameters": {"type": "object", "properties": {}}
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_week_events",
+                    "description": "Получить события на ближайшие 7 дней",
+                    "parameters": {"type": "object", "properties": {}}
+                }
             }
         ]
         
-        # Системный промпт с инструкциями для Spotify
+        # Системный промпт с инструкциями для Spotify и календаря
         self.system_prompt = """Ты - JARVIS, умный ассистент. Отвечай кратко и по делу.
 
-Умеешь управлять Spotify. Если пользователь просит что-то связанного с музыкой — 
+Умеешь управлять Spotify и календарем. Если пользователь просит что-то связанного с музыкой — 
 используй соответствующий инструмент. Примеры:
 'включи музыку для работы' → spotify_play_playlist(query='для работы')
 'погромче' → spotify_volume(level=70)
 'следующий' → spotify_next()
 'что играет' → spotify_now()
+
+Для календаря используй:
+'напомни завтра в 10 встреча' → add_event(title='встреча', date='завтра', time='10:00')
+'что у меня сегодня' → get_today_events()
+'план на неделю' → get_week_events()
 
 Для других вопросов отвечай как обычный ассистент."""
     
@@ -172,6 +222,8 @@ class GroqClient:
         """
         try:
             from spotify_new import spotify_new
+            from database import db
+            from datetime import datetime, date, timedelta
             
             results = []
             
@@ -228,6 +280,94 @@ class GroqClient:
                         result = f"🎵 Включен плейлист: {playlist_result}"
                     else:
                         result = f"❌ Не удалось найти плейлист: {query}"
+                
+                elif function_name == "add_event":
+                    title = arguments.get("title", "")
+                    date_str = arguments.get("date", "")
+                    time_str = arguments.get("time", "")
+                    description = arguments.get("description", "")
+                    
+                    # Парсим дату
+                    if date_str == "сегодня":
+                        event_date = date.today()
+                    elif date_str == "завтра":
+                        event_date = date.today() + timedelta(days=1)
+                    else:
+                        # Пробуем парсить DD.MM или DD.MM.YYYY
+                        import re
+                        match = re.match(r'(\d{2})\.(\d{2})(?:\.(\d{4}))?', date_str)
+                        if match:
+                            day, month, year = match.groups()
+                            year = int(year) if year else date.today().year
+                            event_date = date(year, int(month), int(day))
+                        else:
+                            result = "❌ Неверный формат даты"
+                            results.append(result)
+                            continue
+                    
+                    # Парсим время
+                    event_time = None
+                    if time_str:
+                        try:
+                            if ':' in time_str:
+                                hour, minute = map(int, time_str.split(':'))
+                            else:
+                                hour, minute = int(time_str), 0
+                            event_time = datetime.time(hour, minute)
+                        except ValueError:
+                            pass
+                    
+                    # Добавляем событие
+                    success = await db.add_event(user_id, title, event_date, event_time, description)
+                    if success:
+                        date_str_formatted = event_date.strftime('%d.%m.%Y')
+                        time_str_formatted = f" {event_time}" if event_time else ""
+                        result = f"✅ Событие добавлено: {date_str_formatted}{time_str_formatted} - {title}"
+                    else:
+                        result = "❌ Ошибка добавления события"
+                
+                elif function_name == "get_today_events":
+                    events = await db.get_events_by_date(user_id, date.today())
+                    if events:
+                        result = "📅 События сегодня:\n"
+                        for event in events:
+                            result += f"• {event['title']}"
+                            if event['event_time']:
+                                result += f" - {event['event_time']}"
+                            result += "\n"
+                    else:
+                        result = "📅 На сегодня нет событий"
+                
+                elif function_name == "get_week_events":
+                    today = date.today()
+                    end_date = today + timedelta(days=6)
+                    events = await db.get_events(user_id, today, end_date)
+                    
+                    if events:
+                        # Группируем по дням
+                        events_by_day = {}
+                        for event in events:
+                            event_date = event['event_date']
+                            if event_date not in events_by_day:
+                                events_by_day[event_date] = []
+                            events_by_day[event_date].append(event)
+                        
+                        result = "📅 План на неделю:\n"
+                        current_date = today
+                        while current_date <= end_date:
+                            date_str = current_date.strftime('%d.%m')
+                            day_name = current_date.strftime('%A')
+                            
+                            if current_date in events_by_day:
+                                result += f"**{date_str} ({day_name}):**\n"
+                                for event in events_by_day[current_date]:
+                                    result += f"• {event['title']}"
+                                    if event['event_time']:
+                                        result += f" - {event['event_time']}"
+                                    result += "\n"
+                            current_date += timedelta(days=1)
+                    else:
+                        result = "📅 На неделю нет событий"
                 
                 else:
                     result = f"❌ Неизвестная функция: {function_name}"

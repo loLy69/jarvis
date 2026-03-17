@@ -1,8 +1,12 @@
 """
 Модуль для работы с базой данных PostgreSQL через asyncpg
 """
+import os
+import asyncio
+import logging
+from typing import Optional, List, Dict
 import asyncpg
-from typing import Optional
+from datetime import datetime, date, time, timedelta
 from config import Config
 
 
@@ -88,7 +92,7 @@ class Database:
                         created_at TIMESTAMP DEFAULT NOW()
                     )
                 """)
-                logger.info("OK: База данных готова")
+                print("OK: База данных готова")
         except Exception as e:
             print(f"ERROR: Ошибка создания таблиц: {e}")
             raise

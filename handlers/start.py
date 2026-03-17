@@ -3,31 +3,43 @@
 """
 from aiogram import Router, types, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 from database import db
+from config import Config
 
 # Создаем роутер для обработчиков команды /start
 start_router = Router()
 
 # Главное меню
-main_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text="💬 Чат"),
-            KeyboardButton(text="📝 Заметки")
+def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
+    """Создает главное меню с WebApp для календаря"""
+    webapp_url = Config.WEBAPP_URL
+    schedule_button = KeyboardButton(text="� Расписание")
+    
+    if webapp_url:
+        schedule_button = KeyboardButton(
+            text="� Расписание", 
+            web_app=WebAppInfo(url=f"{webapp_url}?user_id={user_id}")
+        )
+    
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="� Чат"),
+                KeyboardButton(text="� Заметки")
+            ],
+            [
+                KeyboardButton(text="🔔 Напоминания"),
+                schedule_button
+            ],
+            [
+                KeyboardButton(text="🎵 Музыка"),
+                KeyboardButton(text="⚙️ Настройки")
+            ]
         ],
-        [
-            KeyboardButton(text="🔔 Напоминания"),
-            KeyboardButton(text="📅 Расписание")
-        ],
-        [
-            KeyboardButton(text="🎵 Музыка"),
-            KeyboardButton(text="⚙️ Настройки")
-        ]
-    ],
-    resize_keyboard=True,
-    input_field_placeholder="Выберите действие..."
-)
+        resize_keyboard=True,
+        input_field_placeholder="Выберите действие..."
+    )
 
 
 @start_router.message(Command("test"))
@@ -293,7 +305,7 @@ async def handle_start(message: types.Message):
         
         await message.answer(
             welcome_text,
-            reply_markup=main_menu
+            reply_markup=get_main_menu(user_id)
         )
         
     except Exception as e:
@@ -312,7 +324,7 @@ async def handle_chat_button(message: types.Message):
         "💬 *Режим чата активирован!*\n\n"
         "Просто напишите любое сообщение, и я с радостью вам отвечу.\n"
         "Для очистки истории диалога используйте: /clear",
-        reply_markup=main_menu
+        reply_markup=get_main_menu(message.from_user.id)
     )
 
 
@@ -328,7 +340,7 @@ async def handle_notes_button(message: types.Message):
         "• `/note_find <запрос>` - поиск заметок\n"
         "• `/note_del <id>` - удалить заметку\n\n"
         "Пример: `/note Купить молоко по дороге домой`",
-        reply_markup=main_menu
+        reply_markup=get_main_menu(message.from_user.id)
     )
 
 
@@ -344,7 +356,7 @@ async def handle_reminders_button(message: types.Message):
         "• `/remind_del <id>` - удалить напоминание\n\n"
         "Форматы времени: `10min`, `2h`, `18:30`\n"
         "Пример: `/remind 10min позвонить маме`",
-        reply_markup=main_menu
+        reply_markup=get_main_menu(message.from_user.id)
     )
 
 
@@ -377,5 +389,5 @@ async def handle_settings_button(message: types.Message):
         "⚙️ *Настройки*\n\n"
         "Эта функция скоро будет доступна.\n"
         "Следите за обновлениями! 🚀",
-        reply_markup=main_menu
+        reply_markup=get_main_menu(message.from_user.id)
     )
